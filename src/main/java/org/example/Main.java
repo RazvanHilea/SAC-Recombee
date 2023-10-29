@@ -25,7 +25,7 @@ public class Main {
         ).setRegion(Region.EU_WEST);
 
 //        addItemsToDB(client);
-
+gt
         registerPurchases(client, "user1", 3);
         registerPurchases(client, "user2", 10);
         registerPurchases(client, "user3", 20);
