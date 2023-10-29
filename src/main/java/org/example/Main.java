@@ -3,31 +3,39 @@ package org.example;
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 import com.recombee.api_client.RecombeeClient;
-import com.recombee.api_client.api_requests.AddItem;
-import com.recombee.api_client.api_requests.SetItemValues;
+import com.recombee.api_client.api_requests.*;
+import com.recombee.api_client.bindings.DeleteMoreItemsResponse;
+import com.recombee.api_client.bindings.Item;
+import com.recombee.api_client.bindings.Recommendation;
+import com.recombee.api_client.bindings.RecommendationResponse;
 import com.recombee.api_client.exceptions.ApiException;
 import com.recombee.api_client.util.Region;
 
-import javax.imageio.ImageIO;
-import java.awt.*;
 import java.io.FileReader;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
-
-import static com.fasterxml.jackson.databind.type.LogicalType.Map;
+import java.util.Map;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ApiException {
         RecombeeClient client = new RecombeeClient(
                 "sac-dev",
                 "lfKXuspzLpxBhTUpAxCzRjRGBspCIbGxjAiglXyH48Gu18GAF654LEgqmPalDtlg"
         ).setRegion(Region.EU_WEST);
 
+//        addItemsToDB(client);
+
+        registerPurchases(client, "user1", 3);
+        registerPurchases(client, "user2", 10);
+        registerPurchases(client, "user3", 20);
+
+        RecommendationResponse recommended = client.send(new RecommendItemsToUser("user1", 5));
+        for(Recommendation rec: recommended) System.out.println(rec.getId());
+
+    }
+
+    private static void addItemsToDB(RecombeeClient client) {
         try (CSVReader reader = new CSVReader(new FileReader("C:\\Users\\Razvycs\\IdeaProjects\\SAC\\src\\main\\resources\\target_products_dataset.csv"))) {
             List<String[]> r = reader.readAll();
             r.forEach(x -> {
@@ -39,19 +47,36 @@ public class Main {
                     values.put("description", x[2]);
                     values.put("url", x[3]);
                     values.put("image", x[4]);
-                    URL url = new URL(x[4]);
-                    Image image = ImageIO.read(url);
-                    values.put("image", image);
 
                     client.send(new SetItemValues(x[1], values)
-                            .setCascadeCreate(false)
-);
-                } catch (ApiException | IOException e) {
+                            .setCascadeCreate(true)
+                    );
+                } catch (ApiException e) {
                     throw new RuntimeException(e);
                 }
             });
         } catch (IOException | CsvException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    private static Item[] getItemsFromDB(RecombeeClient client, int itemCount) {
+        try {
+            return client.send(new ListItems().setCount(itemCount));
+        } catch (ApiException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static void registerPurchases(RecombeeClient client, String userId, int itemCount) throws ApiException {
+
+        Item[] result = getItemsFromDB(client, itemCount);
+
+        for (Item r: result) {
+            Request req = new AddPurchase(userId,
+                    r.getItemId())
+                    .setCascadeCreate(true);
+            client.send(req);
         }
     }
 }
